@@ -6,6 +6,13 @@
 bool ess_notifications_enabled[ESS_ID_COUNT] = {0};
 ess_value_t ess_current_values[ESS_ID_COUNT] = {0};
 
+void ess_init() {
+    // Initialise adc for the temp sensor
+    adc_init();
+    adc_select_input(ADC_CHANNEL_TEMPSENSOR);
+    adc_set_temp_sensor_enabled(true);
+}
+
 bool ess_any_notification_enabled() {
     bool any_enabled = false;
 

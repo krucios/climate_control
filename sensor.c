@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include "hardware/adc.h"
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 #include "pico/btstack_cyw43.h"
@@ -164,11 +163,6 @@ int main() {
         printf("failed to initialise cyw43_arch\n");
         return -1;
     }
-
-    // Initialise adc for the temp sensor
-    adc_init();
-    adc_select_input(ADC_CHANNEL_TEMPSENSOR);
-    adc_set_temp_sensor_enabled(true);
 
     l2cap_init();
     sm_init();

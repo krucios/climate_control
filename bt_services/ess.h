@@ -19,8 +19,8 @@ typedef uint16_t ess_value_t;
 extern bool ess_notifications_enabled[ESS_ID_COUNT];
 extern ess_value_t ess_current_values[ESS_ID_COUNT];
 
+void ess_init();
 bool ess_any_notification_enabled();
-
 void ess_read_data(void);
 
 #endif // ESS_H
