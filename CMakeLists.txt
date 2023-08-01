@@ -30,7 +30,13 @@ endif()
 # Standalone example that reads from the on board temperature sensor and sends notifications via BLE
 # Flashes slowly each second to show it's running
 add_executable(climate_control_sensor
-    sensor.c bt_services/ess.c
+    sensor.c
+    bt_services/ess.c
+    bme680/bme68x.c
+)
+
+target_compile_definitions(climate_control_sensor PRIVATE
+    BME68X_DO_NOT_USE_FPU
 )
 
 target_link_libraries(climate_control_sensor
@@ -38,12 +44,13 @@ target_link_libraries(climate_control_sensor
     pico_btstack_ble
     pico_btstack_cyw43
     pico_cyw43_arch_none
-    hardware_adc
+    hardware_i2c
 )
 
 target_include_directories(climate_control_sensor PRIVATE
     ${CMAKE_CURRENT_LIST_DIR} # For btstack config
     ${CMAKE_CURRENT_LIST_DIR}/bt_services
+    ${CMAKE_CURRENT_LIST_DIR}/bme680
 )
 
 pico_btstack_make_gatt_header(climate_control_sensor PRIVATE "${CMAKE_CURRENT_LIST_DIR}/sensor.gatt")

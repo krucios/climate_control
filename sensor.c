@@ -68,8 +68,6 @@ void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint
 
         // Send notifications when it's time to do so
         case ATT_EVENT_CAN_SEND_NOW:
-            printf("Send notification\n");
-
             if (ess_notifications_enabled[ESS_TEMPERATURE]) {
                 att_server_notify(con_handle, ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_TEMPERATURE_01_VALUE_HANDLE, (uint8_t*)&ess_current_values[ESS_TEMPERATURE], sizeof(ess_value_t));
             }
@@ -90,8 +88,6 @@ void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint
 uint16_t att_read_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint16_t offset, uint8_t * buffer, uint16_t buffer_size) {
     UNUSED(connection_handle);
 
-    printf("ATT read callback: for att handle 0x%0x\n", att_handle);
-
     if (att_handle == ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_TEMPERATURE_01_VALUE_HANDLE) {
         return att_read_callback_handle_blob((const uint8_t *)&ess_current_values[ESS_TEMPERATURE], sizeof(ess_value_t), offset, buffer, buffer_size);
     } else if (att_handle == ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_PRESSURE_01_VALUE_HANDLE) {
@@ -110,8 +106,6 @@ int att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle, 
     uint16_t value = little_endian_read_16(buffer, 0);
     bool is_notifications_enabled = value == GATT_CLIENT_CHARACTERISTICS_CONFIGURATION_NOTIFICATION;
 
-    printf("ATT write callback: for att handle 0x%0x, value - 0x%0x\n", att_handle, value);
-
     if (att_handle == ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_TEMPERATURE_01_CLIENT_CONFIGURATION_HANDLE) {
         ess_notifications_enabled[ESS_TEMPERATURE] = is_notifications_enabled;
     } else if (att_handle == ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_PRESSURE_01_CLIENT_CONFIGURATION_HANDLE) {
@@ -129,11 +123,11 @@ int att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle, 
 }
 
 static void heartbeat_handler(struct btstack_timer_source *ts) {
-    static uint32_t counter = 0;
+    static uint32_t counter = 1;
     counter++;
 
     // Update the temp every 3s
-    if (counter % 3 == 0) {
+    if (counter % 10 == 0) {
         ess_read_data();
 
         if (ess_any_notification_enabled()) {
@@ -157,6 +151,8 @@ int main() {
     printf("Initial wait to connect serial monitor\n");
     sleep_ms(5000);
     printf("Let's go!\n");
+
+    ess_init();
 
     // initialize CYW43 driver architecture (will enable BT if/because CYW43_ENABLE_BLUETOOTH == 1)
     if (cyw43_arch_init()) {

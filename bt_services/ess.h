@@ -3,7 +3,9 @@
 
 #include <pico/stdlib.h>
 
-#define ADC_CHANNEL_TEMPSENSOR 4
+#define BME680_I2C_INST    (i2c1)
+#define BME680_I2C_SCL_PIN (27)
+#define BME680_I2C_SDA_PIN (26)
 
 // Important, don't assign values to enum entries as this will break ID_COUNT
 // logic which assumes counting is done from 0

@@ -1,0 +1,3 @@
+[submodule "bme680"]
+	path = bme680
+	url = git@github.com:boschsensortec/BME68x-Sensor-API.git
