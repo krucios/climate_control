@@ -3,10 +3,6 @@
 
 #include <pico/stdlib.h>
 
-#define BME680_I2C_INST    (i2c1)
-#define BME680_I2C_SCL_PIN (27)
-#define BME680_I2C_SDA_PIN (26)
-
 // Important, don't assign values to enum entries as this will break ID_COUNT
 // logic which assumes counting is done from 0
 typedef enum {
@@ -23,6 +19,6 @@ extern ess_value_t ess_current_values[ESS_ID_COUNT];
 
 void ess_init();
 bool ess_any_notification_enabled();
-void ess_read_data(void);
+void ess_thread();
 
 #endif // ESS_H

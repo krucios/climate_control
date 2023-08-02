@@ -5,6 +5,7 @@
 #include "btstack.h"
 #include "sensor.h"
 #include "bt_services/ess.h"
+#include "bsec_integration.h"
 
 #define HEARTBEAT_PERIOD_MS 1000
 #define APP_AD_FLAGS 0x06 // LE only (0x4), general discoverable mdoe (0x2)
@@ -55,8 +56,6 @@ void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint
 
             gap_advertisements_set_data(adv_data_len, (uint8_t*) adv_data);
             gap_advertisements_enable(1);
-
-            ess_read_data();
 
             break;
 
@@ -127,9 +126,7 @@ static void heartbeat_handler(struct btstack_timer_source *ts) {
     counter++;
 
     // Update the temp every 3s
-    if (counter % 10 == 0) {
-        ess_read_data();
-
+    if (counter % 3 == 0) {
         if (ess_any_notification_enabled()) {
             att_server_request_can_send_now_event(con_handle);
         }
@@ -191,9 +188,7 @@ int main() {
     // btstacK_run_loop_ methods to add work to the run loop.
 
     // this is a forever loop in place of where user code would go.
-    while(true) {
-        sleep_ms(1000);
-    }
+    ess_thread();
 #endif
     return 0;
 }

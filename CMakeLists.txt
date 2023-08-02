@@ -26,6 +26,11 @@ if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
     add_compile_options(-Wno-maybe-uninitialized)
 endif()
 
+# Define BME680 lib to link later with bsec
+add_library(bme680 bme680/bme68x.c)
+target_include_directories(bme680 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/bme680)
+
+add_subdirectory(bsec)
 
 # Standalone example that reads from the on board temperature sensor and sends notifications via BLE
 # Flashes slowly each second to show it's running
@@ -35,16 +40,13 @@ add_executable(climate_control_sensor
     bme680/bme68x.c
 )
 
-target_compile_definitions(climate_control_sensor PRIVATE
-    BME68X_DO_NOT_USE_FPU
-)
-
 target_link_libraries(climate_control_sensor
+    bsec
+    bme680
     pico_stdlib
     pico_btstack_ble
     pico_btstack_cyw43
     pico_cyw43_arch_none
-    hardware_i2c
 )
 
 target_include_directories(climate_control_sensor PRIVATE
