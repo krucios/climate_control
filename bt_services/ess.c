@@ -45,6 +45,7 @@ void bsec_outputs_ready(int64_t timestamp,
 }
 
 void ess_init() {
+    // TODO: adjust sample rate for ULP
     bsec_iot_init(BSEC_SAMPLE_RATE_CONT, 0.0f);
 }
 
@@ -59,5 +60,6 @@ bool ess_any_notification_enabled() {
 }
 
 void ess_thread() {
+    // TODO: adjust save state interval for low-power (maybe once a day)
     bsec_iot_loop(bsec_outputs_ready, 100);
 }

@@ -8,6 +8,7 @@ extern "C"
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "hardware/flash.h"
 
 #include "bme68x.h"
 
@@ -18,7 +19,20 @@ extern "C"
 #define BME680_I2C_SCL_PIN (27)
 #define BME680_I2C_SDA_PIN (26)
 
-#define BSEC_CHECK_INPUT(x, shift)		(x & (1 << (shift-1)))
+// Keep saved state at the end of Flash to not interfere with the program
+// if this area gets overwritten by programm then we have bigger problems
+// as the program doesn't fit into provided flash.
+// Use one flash sector for storage as it's the minimal size which can be
+// erased at a time.
+#define BSEC_SAVED_STATE_LEN_FLASH_OFFSET (PICO_FLASH_SIZE_BYTES - 2 * FLASH_SECTOR_SIZE)
+#define BSEC_SAVED_STATE_LEN_BASE (XIP_BASE + BSEC_SAVED_STATE_LEN_FLASH_OFFSET)
+
+#define BSEC_SAVED_STATE_FLASH_OFFSET (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE)
+#define BSEC_SAVED_STATE_BASE (XIP_BASE + BSEC_SAVED_STATE_FLASH_OFFSET)
+
+static_assert(FLASH_SECTOR_SIZE >= BSEC_MAX_PROPERTY_BLOB_SIZE, "Can't fit BSEC state into one flash sector, consider increasing allocated flash storage for BSEC");
+
+#define BSEC_CHECK_INPUT(x, shift) (x & (1 << (shift-1)))
 
 /* function pointer to the system specific sleep function */
 typedef void (*sleep_fct)(uint32_t t_us,void *intf_ptr);
@@ -78,7 +92,7 @@ return_values_init bsec_iot_init(float sample_rate, float temperature_offset);
  * @param[in]   output_ready        pointer to the function processing obtained BSEC outputs
  * @param[in]   save_intvl          interval at which BSEC state should be saved (in samples)
  *
- * @return      return_values_init	struct with the result of the API and the BSEC library
+ * @return      return_values_init  struct with the result of the API and the BSEC library
  */
 void bsec_iot_loop(output_ready_fct output_ready, uint32_t save_intvl);
 

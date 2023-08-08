@@ -3,8 +3,10 @@
 #include <stdint.h>
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
+#include "hardware/sync.h"
 
 #include "bsec_integration.h"
+#include "bsec_iaq.h"
 
 #define NUM_USED_OUTPUTS 13
 
@@ -88,14 +90,26 @@ int64_t bsec_get_timestamp_us() {
 }
 
 /*!
- * @brief        Saves state to NVM.
+ * @brief        Saves state to NVM. Ensure interrupts are saved and disabled
+ *               as there might be problems if any vector is placed in Flash.
+ *               Currently dual-core is not used, but additional measures are
+ *               needed to make sure that the secod core is not using flash.
  *
  * @param[in]    state_buffer     data buffer containing state to be stored
- * @param[in]    length           length in bytes of data buffer provided
+ * @param[in]    length           length in bytes of bsec state provided
  *
  * @return       none
  */
 void bsec_state_save(const uint8_t *state_buffer, uint32_t length) {
+    uint32_t ints = save_and_disable_interrupts();
+    flash_range_erase(BSEC_SAVED_STATE_FLASH_OFFSET, FLASH_SECTOR_SIZE);
+    flash_range_program(BSEC_SAVED_STATE_FLASH_OFFSET, state_buffer, length);
+
+    flash_range_erase(BSEC_SAVED_STATE_LEN_FLASH_OFFSET, FLASH_SECTOR_SIZE);
+    flash_range_program(BSEC_SAVED_STATE_LEN_FLASH_OFFSET, (const uint8_t*)&length, sizeof(length));
+    restore_interrupts(ints);
+
+    printf("BSEC save state, len is %d\n", length);
 }
 
 /*!
@@ -104,22 +118,44 @@ void bsec_state_save(const uint8_t *state_buffer, uint32_t length) {
  * @param[in]    state_buffer     data buffer where state will be loaded
  * @param[out]   n_buffer         length in bytes of data filled in buffer
  *
- * @return       zero when successful, non-zero if error occured
+ * @return       amount of bytes returned
  */
 uint32_t bsec_state_load(uint8_t *state_buffer, uint32_t n_buffer) {
-    return 0;
+    const uint8_t *saved_state_len = (const uint8_t *) (BSEC_SAVED_STATE_LEN_BASE);
+    const uint8_t *saved_state = (const uint8_t *) (BSEC_SAVED_STATE_BASE);
+
+    // CHeck if provided buffer is sufficient for restoring saved state
+    assert(*saved_state_len <= n_buffer);
+
+    for (uint32_t i = 0; i < *saved_state_len; ++i) {
+        state_buffer[i] = saved_state[i];
+    }
+
+    printf("BSEC load state, len is %d\n", *saved_state_len);
+
+    // TODO: check state integrity nicely
+    if (*saved_state_len != 221) {
+        printf("Error while loading state, wrong state length\n");
+        return 0;
+    }
+
+    return *saved_state_len;
 }
 
 /*!
  * @brief        Reads config from NVM.
  *
  * @param[in]    config_buffer    data buffer where config will be loaded
- * @param[out]   n_buffer         length in bytes of data filled in buffer
+ * @param[in]    n_buffer         length in bytes of data buffer provided
  *
- * @return       zero when successful, non-zero if error occured
+ * @return       amount of bytes returned
  */
 uint32_t bsec_config_load(uint8_t *config_buffer, uint32_t n_buffer) {
-    return 0;
+    for (size_t i = 0; i < n_buffer; i++) {
+        config_buffer[i] = bsec_config_iaq[i];
+    }
+
+    return n_buffer;
 }
 
 /*!
@@ -182,7 +218,7 @@ static bsec_library_return_t bme68x_bsec_update_subscription(float sample_rate) 
 return_values_init bsec_iot_init(float sample_rate, float temperature_offset) {
     return_values_init ret = {BME68X_OK, BSEC_OK};
 
-    uint8_t bsec_state[BSEC_MAX_STATE_BLOB_SIZE] = {0};
+    uint8_t bsec_state[FLASH_SECTOR_SIZE] = {0};
     uint8_t bsec_config[BSEC_MAX_PROPERTY_BLOB_SIZE] = {0};
     uint8_t work_buffer[BSEC_MAX_WORKBUFFER_SIZE] = {0};
     int32_t bsec_state_len, bsec_config_len;
@@ -220,18 +256,24 @@ return_values_init bsec_iot_init(float sample_rate, float temperature_offset) {
 
     bsec_config_len = bsec_config_load(bsec_config, sizeof(bsec_config));
     if (bsec_config_len != 0) {
+        printf("BSEC state loading ... ");
         ret.bsec_status = bsec_set_configuration(bsec_config, bsec_config_len, work_buffer, sizeof(work_buffer));
         if (ret.bsec_status != BSEC_OK) {
+            printf("%d\n", ret.bsec_status);
             return ret;
         }
+        printf("OK\n");
     }
 
     bsec_state_len = bsec_state_load(bsec_state, sizeof(bsec_state));
     if (bsec_state_len != 0) {
+        printf("BSEC state loading ... ");
         ret.bsec_status = bsec_set_state(bsec_state, bsec_state_len, work_buffer, sizeof(work_buffer));
         if (ret.bsec_status != BSEC_OK) {
+            printf("%d\n", ret.bsec_status);
             return ret;
         }
+        printf("OK\n");
     }
 
     ret.bsec_status = bme68x_bsec_update_subscription(sample_rate);
@@ -492,7 +534,7 @@ void bsec_iot_loop(output_ready_fct output_ready, uint32_t save_intvl) {
     bsec_bme_settings_t sensor_settings;
     memset(&sensor_settings, 0, sizeof(sensor_settings));
 
-    uint8_t bsec_state[BSEC_MAX_STATE_BLOB_SIZE];
+    uint8_t bsec_state[FLASH_SECTOR_SIZE];
     uint8_t work_buffer[BSEC_MAX_WORKBUFFER_SIZE];
     uint32_t bsec_state_len = 0;
     uint32_t n_samples = 0;
@@ -549,6 +591,7 @@ void bsec_iot_loop(output_ready_fct output_ready, uint32_t save_intvl) {
                 }
             }
 
+            printf("%d: ", n_samples);
             n_samples++;
 
             // Save state regularly
