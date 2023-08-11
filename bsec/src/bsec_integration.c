@@ -302,19 +302,19 @@ static bsec_library_return_t bme68x_bsec_process_data(bsec_input_t *bsec_inputs,
 
     int64_t timestamp = 0;
 
-    int32_t iaq = 0;
-    int32_t static_iaq = 0;
-    int32_t co2_equivalent = 0;
-    int32_t breath_voc_equivalent = 0;
-    int32_t raw_temperature = 0;
-    int32_t raw_pressure = 0;
-    int32_t raw_humidity = 0;
-    int32_t raw_gas = 0;
-    bool    stabilization_status = false;
-    bool    run_in_status = false;
-    int32_t sensor_heat_compensated_temperature = 0;
-    int32_t sensor_heat_compensated_humidity = 0;
-    int32_t gas_percentage = 0;
+    float iaq = 0.0f;
+    float static_iaq = 0.0f;
+    float co2_equivalent = 0.0f;
+    float breath_voc_equivalent = 0.0f;
+    float raw_temperature = 0.0f;
+    float raw_pressure = 0.0f;
+    float raw_humidity = 0.0f;
+    float raw_gas = 0.0f;
+    bool  stabilization_status = false;
+    bool  run_in_status = false;
+    float sensor_heat_compensated_temperature = 0.0f;
+    float sensor_heat_compensated_humidity = 0.0f;
+    float gas_percentage = 0.0f;
 
     // Check if something should be processed by BSEC
     if (num_bsec_inputs > 0) {
@@ -333,28 +333,28 @@ static bsec_library_return_t bme68x_bsec_process_data(bsec_input_t *bsec_inputs,
         for (uint8_t index = 0; index < num_bsec_outputs; index++) {
             switch (bsec_outputs[index].sensor_id) {
                 case BSEC_OUTPUT_IAQ:
-                    iaq = (int32_t)bsec_outputs[index].signal;
+                    iaq = bsec_outputs[index].signal;
                     break;
                 case BSEC_OUTPUT_STATIC_IAQ:
-                    static_iaq = (int32_t)bsec_outputs[index].signal;
+                    static_iaq = bsec_outputs[index].signal;
                     break;
                 case BSEC_OUTPUT_CO2_EQUIVALENT:
-                    co2_equivalent = (int32_t)bsec_outputs[index].signal;
+                    co2_equivalent = bsec_outputs[index].signal;
                     break;
                 case BSEC_OUTPUT_BREATH_VOC_EQUIVALENT:
-                    breath_voc_equivalent = (int32_t)bsec_outputs[index].signal;
+                    breath_voc_equivalent = bsec_outputs[index].signal;
                     break;
                 case BSEC_OUTPUT_RAW_TEMPERATURE:
-                    raw_temperature = (int32_t)bsec_outputs[index].signal;
+                    raw_temperature = bsec_outputs[index].signal;
                     break;
                 case BSEC_OUTPUT_RAW_PRESSURE:
-                    raw_pressure = (int32_t)bsec_outputs[index].signal;
+                    raw_pressure = bsec_outputs[index].signal;
                     break;
                 case BSEC_OUTPUT_RAW_HUMIDITY:
-                    raw_humidity = (int32_t)bsec_outputs[index].signal;
+                    raw_humidity = bsec_outputs[index].signal;
                     break;
                 case BSEC_OUTPUT_RAW_GAS:
-                    raw_gas = (int32_t)bsec_outputs[index].signal;
+                    raw_gas = bsec_outputs[index].signal;
                     break;
                 case BSEC_OUTPUT_STABILIZATION_STATUS:
                     stabilization_status = bsec_outputs[index].signal != 0.0f;
@@ -363,13 +363,13 @@ static bsec_library_return_t bme68x_bsec_process_data(bsec_input_t *bsec_inputs,
                     run_in_status = bsec_outputs[index].signal != 0.0f;
                     break;
                 case BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_TEMPERATURE:
-                    sensor_heat_compensated_temperature = (int32_t)bsec_outputs[index].signal;
+                    sensor_heat_compensated_temperature = bsec_outputs[index].signal;
                     break;
                 case BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_HUMIDITY:
-                    sensor_heat_compensated_humidity = (int32_t)bsec_outputs[index].signal;
+                    sensor_heat_compensated_humidity = bsec_outputs[index].signal;
                     break;
                 case BSEC_OUTPUT_GAS_PERCENTAGE:
-                    gas_percentage = (int32_t)bsec_outputs[index].signal;
+                    gas_percentage = bsec_outputs[index].signal;
                     break;
 
                 default:
@@ -591,7 +591,7 @@ void bsec_iot_loop(output_ready_fct output_ready, uint32_t save_intvl) {
                 }
             }
 
-            printf("%d: ", n_samples);
+            printf("\t%d: ", n_samples);
             n_samples++;
 
             // Save state regularly

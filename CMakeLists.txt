@@ -36,7 +36,7 @@ add_subdirectory(bsec)
 # Flashes slowly each second to show it's running
 add_executable(climate_control_sensor
     sensor.c
-    bt_services/ess.c
+    bt_services/climate_tracker.c
     bme680/bme68x.c
 )
 

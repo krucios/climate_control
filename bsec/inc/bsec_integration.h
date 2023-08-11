@@ -42,19 +42,19 @@ typedef int64_t (*get_timestamp_us_fct)();
 
 /* function pointer to the function processing obtained BSEC outputs */
 typedef void (*output_ready_fct)(int64_t timestamp,
-                                 int32_t iaq,
-                                 int32_t static_iaq,
-                                 int32_t co2_equivalent,
-                                 int32_t breath_voc_equivalent,
-                                 int32_t raw_temperature,
-                                 int32_t raw_pressure,
-                                 int32_t raw_humidity,
-                                 int32_t raw_gas,
-                                 bool stabilization_status,
-                                 bool run_in_status,
-                                 int32_t sensor_heat_compensated_temperature,
-                                 int32_t sensor_heat_compensated_humidity,
-                                 int32_t gas_percentage,
+                                 float iaq,
+                                 float static_iaq,
+                                 float co2_equivalent,
+                                 float breath_voc_equivalent,
+                                 float raw_temperature,
+                                 float raw_pressure,
+                                 float raw_humidity,
+                                 float raw_gas,
+                                 bool  stabilization_status,
+                                 bool  run_in_status,
+                                 float sensor_heat_compensated_temperature,
+                                 float sensor_heat_compensated_humidity,
+                                 float gas_percentage,
                                  bsec_library_return_t bsec_status);
 
 /* function pointer to the function loading a previous BSEC state from NVM */

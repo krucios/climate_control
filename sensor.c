@@ -4,7 +4,7 @@
 #include "pico/btstack_cyw43.h"
 #include "btstack.h"
 #include "sensor.h"
-#include "bt_services/ess.h"
+#include "bt_services/climate_tracker.h"
 #include "bsec_integration.h"
 
 #define HEARTBEAT_PERIOD_MS 1000
@@ -17,10 +17,7 @@ static uint8_t adv_data[] = {
     // Flags
     0x02, BLUETOOTH_DATA_TYPE_FLAGS, APP_AD_FLAGS,
     // Name
-    0x0d, BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, 'P', 'i', 'c', 'o', ' ', 'c', 'l', 'i', 'm', 'a', 't', 'e',
-    // Advertised services, no need to list all, just 'main' service to let
-    // clients know about the main purpose of the device
-    0x03, BLUETOOTH_DATA_TYPE_INCOMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS, 0x1a, 0x18,
+    0x0d, BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, 'P', 'i', 'c', 'o', ' ', 'c', 'l', 'i', 'm', 'a', 't', 'e'
 };
 static const uint8_t adv_data_len = sizeof(adv_data);
 static hci_con_handle_t con_handle;
@@ -62,19 +59,40 @@ void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint
         // No need to send notifications if a reader disconnected
         case HCI_EVENT_DISCONNECTION_COMPLETE:
             printf("Client has disconnected\n");
-            memset(ess_notifications_enabled, 0, sizeof(ess_notifications_enabled));
+            memset(climate_tracker_notifications_enabled, 0, sizeof(climate_tracker_notifications_enabled));
             break;
 
         // Send notifications when it's time to do so
         case ATT_EVENT_CAN_SEND_NOW:
-            if (ess_notifications_enabled[ESS_TEMPERATURE]) {
-                att_server_notify(con_handle, ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_TEMPERATURE_01_VALUE_HANDLE, (uint8_t*)&ess_current_values[ESS_TEMPERATURE], sizeof(ess_value_t));
+            if (climate_tracker_notifications_enabled[CT_CURRENT_TEMPERATURE]) {
+                att_server_notify(con_handle, ATT_CHARACTERISTIC_00000011_0000_1000_8000_0026BB765291_01_VALUE_HANDLE, (uint8_t*)&climate_tracker_current_temperature, sizeof(climate_tracker_current_temperature));
             }
-            if (ess_notifications_enabled[ESS_PRESSURE]) {
-                att_server_notify(con_handle, ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_PRESSURE_01_VALUE_HANDLE, (uint8_t*)&ess_current_values[ESS_PRESSURE], sizeof(ess_value_t));
+            if (climate_tracker_notifications_enabled[CT_CURRENT_TEMPERATURE_ACTIVE]) {
+                att_server_notify(con_handle, ATT_CHARACTERISTIC_00000075_0000_1000_8000_0026BB765291_01_VALUE_HANDLE, (uint8_t*)&climate_tracker_active, sizeof(climate_tracker_active));
             }
-            if (ess_notifications_enabled[ESS_HUMIDITY]) {
-                att_server_notify(con_handle, ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_HUMIDITY_01_VALUE_HANDLE, (uint8_t*)&ess_current_values[ESS_HUMIDITY], sizeof(ess_value_t));
+            if (climate_tracker_notifications_enabled[CT_CURRENT_TEMPERATURE_LOW_BATTERY]) {
+                att_server_notify(con_handle, ATT_CHARACTERISTIC_00000079_0000_1000_8000_0026BB765291_01_VALUE_HANDLE, (uint8_t*)&climate_tracker_low_battery, sizeof(climate_tracker_low_battery));
+            }
+            if (climate_tracker_notifications_enabled[CT_RELATIVE_HUMIDITY]) {
+                att_server_notify(con_handle, ATT_CHARACTERISTIC_00000010_0000_1000_8000_0026BB765291_01_VALUE_HANDLE, (uint8_t*)&climate_tracker_relative_humidity, sizeof(climate_tracker_relative_humidity));
+            }
+            if (climate_tracker_notifications_enabled[CT_RELATIVE_HUMIDITY_ACTIVE]) {
+                att_server_notify(con_handle, ATT_CHARACTERISTIC_00000075_0000_1000_8000_0026BB765291_02_VALUE_HANDLE, (uint8_t*)&climate_tracker_active, sizeof(climate_tracker_active));
+            }
+            if (climate_tracker_notifications_enabled[CT_RELATIVE_HUMIDITY_LOW_BATTERY]) {
+                att_server_notify(con_handle, ATT_CHARACTERISTIC_00000079_0000_1000_8000_0026BB765291_02_VALUE_HANDLE, (uint8_t*)&climate_tracker_low_battery, sizeof(climate_tracker_low_battery));
+            }
+            if (climate_tracker_notifications_enabled[CT_AIR_QUALITY]) {
+                att_server_notify(con_handle, ATT_CHARACTERISTIC_00000095_0000_1000_8000_0026BB765291_01_VALUE_HANDLE, (uint8_t*)&climate_tracker_air_quality, sizeof(climate_tracker_air_quality));
+            }
+            if (climate_tracker_notifications_enabled[CT_VOC_DENSITY]) {
+                att_server_notify(con_handle, ATT_CHARACTERISTIC_000000C8_0000_1000_8000_0026BB765291_01_VALUE_HANDLE, (uint8_t*)&climate_tracker_voc_density, sizeof(climate_tracker_voc_density));
+            }
+            if (climate_tracker_notifications_enabled[CT_AIR_QUALITY_ACTIVE]) {
+                att_server_notify(con_handle, ATT_CHARACTERISTIC_00000075_0000_1000_8000_0026BB765291_03_VALUE_HANDLE, (uint8_t*)&climate_tracker_active, sizeof(climate_tracker_active));
+            }
+            if (climate_tracker_notifications_enabled[CT_AIR_QUALITY_LOW_BATTERY]) {
+                att_server_notify(con_handle, ATT_CHARACTERISTIC_00000079_0000_1000_8000_0026BB765291_03_VALUE_HANDLE, (uint8_t*)&climate_tracker_low_battery, sizeof(climate_tracker_low_battery));
             }
 
             break;
@@ -87,13 +105,61 @@ void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint
 uint16_t att_read_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint16_t offset, uint8_t * buffer, uint16_t buffer_size) {
     UNUSED(connection_handle);
 
-    if (att_handle == ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_TEMPERATURE_01_VALUE_HANDLE) {
-        return att_read_callback_handle_blob((const uint8_t *)&ess_current_values[ESS_TEMPERATURE], sizeof(ess_value_t), offset, buffer, buffer_size);
-    } else if (att_handle == ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_PRESSURE_01_VALUE_HANDLE) {
-        return att_read_callback_handle_blob((const uint8_t *)&ess_current_values[ESS_PRESSURE], sizeof(ess_value_t), offset, buffer, buffer_size);
-    } else if (att_handle == ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_HUMIDITY_01_VALUE_HANDLE) {
-        return att_read_callback_handle_blob((const uint8_t *)&ess_current_values[ESS_HUMIDITY], sizeof(ess_value_t), offset, buffer, buffer_size);
+    //
+    // Handle reads to client configuration characteristic descriptor as they are not handled by BTstack and
+    // might cause confusion on other side. An example: read of this descriptor return nothing so receiving
+    // end reported nothing to the central application. That might crash the application as it's likely to
+    // expect proper behaviour of CCC which is described in Core spec.
+    //
+    switch (att_handle) {
+        // Temperature service
+        case ATT_CHARACTERISTIC_00000011_0000_1000_8000_0026BB765291_01_VALUE_HANDLE:
+            return att_read_callback_handle_blob((const uint8_t *)&climate_tracker_current_temperature, sizeof(climate_tracker_current_temperature), offset, buffer, buffer_size);
+        case ATT_CHARACTERISTIC_00000011_0000_1000_8000_0026BB765291_01_CLIENT_CONFIGURATION_HANDLE:
+            return att_read_callback_handle_blob((const uint8_t *)&climate_tracker_notifications_enabled[CT_CURRENT_TEMPERATURE], sizeof(climate_tracker_notifications_enabled[CT_CURRENT_TEMPERATURE]), offset, buffer, buffer_size);
+        case ATT_CHARACTERISTIC_00000075_0000_1000_8000_0026BB765291_01_VALUE_HANDLE:
+            return att_read_callback_handle_blob((const uint8_t *)&climate_tracker_active, sizeof(climate_tracker_active), offset, buffer, buffer_size);
+        case ATT_CHARACTERISTIC_00000075_0000_1000_8000_0026BB765291_01_CLIENT_CONFIGURATION_HANDLE:
+            return att_read_callback_handle_blob((const uint8_t *)&climate_tracker_notifications_enabled[CT_CURRENT_TEMPERATURE_ACTIVE], sizeof(climate_tracker_notifications_enabled[CT_CURRENT_TEMPERATURE_ACTIVE]), offset, buffer, buffer_size);
+        case ATT_CHARACTERISTIC_00000079_0000_1000_8000_0026BB765291_01_VALUE_HANDLE:
+            return att_read_callback_handle_blob((const uint8_t *)&climate_tracker_low_battery, sizeof(climate_tracker_low_battery), offset, buffer, buffer_size);
+        case ATT_CHARACTERISTIC_00000079_0000_1000_8000_0026BB765291_01_CLIENT_CONFIGURATION_HANDLE:
+            return att_read_callback_handle_blob((const uint8_t *)&climate_tracker_notifications_enabled[CT_CURRENT_TEMPERATURE_LOW_BATTERY], sizeof(climate_tracker_notifications_enabled[CT_CURRENT_TEMPERATURE_LOW_BATTERY]), offset, buffer, buffer_size);
+
+        // Humidity service
+        case ATT_CHARACTERISTIC_00000010_0000_1000_8000_0026BB765291_01_VALUE_HANDLE:
+            return att_read_callback_handle_blob((const uint8_t *)&climate_tracker_relative_humidity, sizeof(climate_tracker_relative_humidity), offset, buffer, buffer_size);
+        case ATT_CHARACTERISTIC_00000010_0000_1000_8000_0026BB765291_01_CLIENT_CONFIGURATION_HANDLE:
+            return att_read_callback_handle_blob((const uint8_t *)&climate_tracker_notifications_enabled[CT_RELATIVE_HUMIDITY], sizeof(climate_tracker_notifications_enabled[CT_RELATIVE_HUMIDITY]), offset, buffer, buffer_size);
+        case ATT_CHARACTERISTIC_00000075_0000_1000_8000_0026BB765291_02_VALUE_HANDLE:
+            return att_read_callback_handle_blob((const uint8_t *)&climate_tracker_active, sizeof(climate_tracker_active), offset, buffer, buffer_size);
+        case ATT_CHARACTERISTIC_00000075_0000_1000_8000_0026BB765291_02_CLIENT_CONFIGURATION_HANDLE:
+            return att_read_callback_handle_blob((const uint8_t *)&climate_tracker_notifications_enabled[CT_RELATIVE_HUMIDITY_ACTIVE], sizeof(climate_tracker_notifications_enabled[CT_RELATIVE_HUMIDITY_ACTIVE]), offset, buffer, buffer_size);
+        case ATT_CHARACTERISTIC_00000079_0000_1000_8000_0026BB765291_02_VALUE_HANDLE:
+            return att_read_callback_handle_blob((const uint8_t *)&climate_tracker_low_battery, sizeof(climate_tracker_low_battery), offset, buffer, buffer_size);
+        case ATT_CHARACTERISTIC_00000079_0000_1000_8000_0026BB765291_02_CLIENT_CONFIGURATION_HANDLE:
+            return att_read_callback_handle_blob((const uint8_t *)&climate_tracker_notifications_enabled[CT_RELATIVE_HUMIDITY_LOW_BATTERY], sizeof(climate_tracker_notifications_enabled[CT_RELATIVE_HUMIDITY_LOW_BATTERY]), offset, buffer, buffer_size);
+
+        // Air Quality service
+        case ATT_CHARACTERISTIC_00000095_0000_1000_8000_0026BB765291_01_VALUE_HANDLE:
+            return att_read_callback_handle_blob((const uint8_t *)&climate_tracker_air_quality, sizeof(climate_tracker_air_quality), offset, buffer, buffer_size);
+        case ATT_CHARACTERISTIC_00000095_0000_1000_8000_0026BB765291_01_CLIENT_CONFIGURATION_HANDLE:
+            return att_read_callback_handle_blob((const uint8_t *)&climate_tracker_notifications_enabled[CT_AIR_QUALITY], sizeof(climate_tracker_notifications_enabled[CT_AIR_QUALITY]), offset, buffer, buffer_size);
+        case ATT_CHARACTERISTIC_000000C8_0000_1000_8000_0026BB765291_01_VALUE_HANDLE:
+            return att_read_callback_handle_blob((const uint8_t *)&climate_tracker_voc_density, sizeof(climate_tracker_voc_density), offset, buffer, buffer_size);
+        case ATT_CHARACTERISTIC_000000C8_0000_1000_8000_0026BB765291_01_CLIENT_CONFIGURATION_HANDLE:
+            return att_read_callback_handle_blob((const uint8_t *)&climate_tracker_notifications_enabled[CT_VOC_DENSITY], sizeof(climate_tracker_notifications_enabled[CT_VOC_DENSITY]), offset, buffer, buffer_size);
+        case ATT_CHARACTERISTIC_00000075_0000_1000_8000_0026BB765291_03_VALUE_HANDLE:
+            return att_read_callback_handle_blob((const uint8_t *)&climate_tracker_active, sizeof(climate_tracker_active), offset, buffer, buffer_size);
+        case ATT_CHARACTERISTIC_00000075_0000_1000_8000_0026BB765291_03_CLIENT_CONFIGURATION_HANDLE:
+            return att_read_callback_handle_blob((const uint8_t *)&climate_tracker_notifications_enabled[CT_AIR_QUALITY_ACTIVE], sizeof(climate_tracker_notifications_enabled[CT_AIR_QUALITY_ACTIVE]), offset, buffer, buffer_size);
+        case ATT_CHARACTERISTIC_00000079_0000_1000_8000_0026BB765291_03_VALUE_HANDLE:
+            return att_read_callback_handle_blob((const uint8_t *)&climate_tracker_low_battery, sizeof(climate_tracker_low_battery), offset, buffer, buffer_size);
+        case ATT_CHARACTERISTIC_00000079_0000_1000_8000_0026BB765291_03_CLIENT_CONFIGURATION_HANDLE:
+            return att_read_callback_handle_blob((const uint8_t *)&climate_tracker_notifications_enabled[CT_AIR_QUALITY_LOW_BATTERY], sizeof(climate_tracker_notifications_enabled[CT_AIR_QUALITY_LOW_BATTERY]), offset, buffer, buffer_size);
+
     }
+
     return 0;
 }
 
@@ -105,15 +171,40 @@ int att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle, 
     uint16_t value = little_endian_read_16(buffer, 0);
     bool is_notifications_enabled = value == GATT_CLIENT_CHARACTERISTICS_CONFIGURATION_NOTIFICATION;
 
-    if (att_handle == ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_TEMPERATURE_01_CLIENT_CONFIGURATION_HANDLE) {
-        ess_notifications_enabled[ESS_TEMPERATURE] = is_notifications_enabled;
-    } else if (att_handle == ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_PRESSURE_01_CLIENT_CONFIGURATION_HANDLE) {
-        ess_notifications_enabled[ESS_PRESSURE] = is_notifications_enabled;
-    } else if (att_handle == ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_HUMIDITY_01_CLIENT_CONFIGURATION_HANDLE) {
-        ess_notifications_enabled[ESS_HUMIDITY] = is_notifications_enabled;
+    switch (att_handle) {
+        case ATT_CHARACTERISTIC_00000011_0000_1000_8000_0026BB765291_01_CLIENT_CONFIGURATION_HANDLE:
+            climate_tracker_notifications_enabled[CT_CURRENT_TEMPERATURE] = is_notifications_enabled;
+            break;
+        case ATT_CHARACTERISTIC_00000075_0000_1000_8000_0026BB765291_01_CLIENT_CONFIGURATION_HANDLE:
+            climate_tracker_notifications_enabled[CT_CURRENT_TEMPERATURE_ACTIVE] = is_notifications_enabled;
+            break;
+        case ATT_CHARACTERISTIC_00000079_0000_1000_8000_0026BB765291_01_CLIENT_CONFIGURATION_HANDLE:
+            climate_tracker_notifications_enabled[CT_CURRENT_TEMPERATURE_LOW_BATTERY] = is_notifications_enabled;
+            break;
+        case ATT_CHARACTERISTIC_00000010_0000_1000_8000_0026BB765291_01_CLIENT_CONFIGURATION_HANDLE:
+            climate_tracker_notifications_enabled[CT_RELATIVE_HUMIDITY] = is_notifications_enabled;
+            break;
+        case ATT_CHARACTERISTIC_00000075_0000_1000_8000_0026BB765291_02_CLIENT_CONFIGURATION_HANDLE:
+            climate_tracker_notifications_enabled[CT_RELATIVE_HUMIDITY_ACTIVE] = is_notifications_enabled;
+            break;
+        case ATT_CHARACTERISTIC_00000079_0000_1000_8000_0026BB765291_02_CLIENT_CONFIGURATION_HANDLE:
+            climate_tracker_notifications_enabled[CT_RELATIVE_HUMIDITY_LOW_BATTERY] = is_notifications_enabled;
+            break;
+        case ATT_CHARACTERISTIC_00000095_0000_1000_8000_0026BB765291_01_CLIENT_CONFIGURATION_HANDLE:
+            climate_tracker_notifications_enabled[CT_AIR_QUALITY] = is_notifications_enabled;
+            break;
+        case ATT_CHARACTERISTIC_000000C8_0000_1000_8000_0026BB765291_01_CLIENT_CONFIGURATION_HANDLE:
+            climate_tracker_notifications_enabled[CT_VOC_DENSITY] = is_notifications_enabled;
+            break;
+        case ATT_CHARACTERISTIC_00000075_0000_1000_8000_0026BB765291_03_CLIENT_CONFIGURATION_HANDLE:
+            climate_tracker_notifications_enabled[CT_AIR_QUALITY_ACTIVE] = is_notifications_enabled;
+            break;
+        case ATT_CHARACTERISTIC_00000079_0000_1000_8000_0026BB765291_03_CLIENT_CONFIGURATION_HANDLE:
+            climate_tracker_notifications_enabled[CT_AIR_QUALITY_LOW_BATTERY] = is_notifications_enabled;
+            break;
     }
 
-    if (ess_any_notification_enabled()) {
+    if (climate_tracker_any_notification_enabled()) {
         con_handle = connection_handle; // To later use inside heartbeat function
         att_server_request_can_send_now_event(connection_handle);
     }
@@ -127,7 +218,7 @@ static void heartbeat_handler(struct btstack_timer_source *ts) {
 
     // Update the temp every 3s
     if (counter % 3 == 0) {
-        if (ess_any_notification_enabled()) {
+        if (climate_tracker_any_notification_enabled()) {
             att_server_request_can_send_now_event(con_handle);
         }
     }
@@ -149,7 +240,7 @@ int main() {
     sleep_ms(5000);
     printf("Let's go!\n");
 
-    ess_init();
+    climate_tracker_init();
 
     // initialize CYW43 driver architecture (will enable BT if/because CYW43_ENABLE_BLUETOOTH == 1)
     if (cyw43_arch_init()) {
@@ -188,7 +279,7 @@ int main() {
     // btstacK_run_loop_ methods to add work to the run loop.
 
     // this is a forever loop in place of where user code would go.
-    ess_thread();
+    climate_tracker_thread();
 #endif
     return 0;
 }
