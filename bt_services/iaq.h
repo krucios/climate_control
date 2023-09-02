@@ -1,5 +1,5 @@
-#ifndef CLIMATE_TRACKER_H
-#define CLIMATE_TRACKER_H
+#ifndef IAQ_H
+#define IAQ_H
 
 #include <pico/stdlib.h>
 
@@ -19,41 +19,41 @@
 // logic which assumes counting is done from 0
 typedef enum {
     // Temperature service
-    CT_CURRENT_TEMPERATURE = 0,
-    CT_CURRENT_TEMPERATURE_ACTIVE,
-    CT_CURRENT_TEMPERATURE_LOW_BATTERY,
+    IAQ_CURRENT_TEMPERATURE = 0,
+    IAQ_CURRENT_TEMPERATURE_ACTIVE,
+    IAQ_CURRENT_TEMPERATURE_LOW_BATTERY,
 
     // Humidity service
-    CT_RELATIVE_HUMIDITY,
-    CT_RELATIVE_HUMIDITY_ACTIVE,
-    CT_RELATIVE_HUMIDITY_LOW_BATTERY,
+    IAQ_RELATIVE_HUMIDITY,
+    IAQ_RELATIVE_HUMIDITY_ACTIVE,
+    IAQ_RELATIVE_HUMIDITY_LOW_BATTERY,
 
     // Air Quality service
-    CT_AIR_QUALITY,
-    CT_VOC_DENSITY,
-    CT_AIR_QUALITY_ACTIVE,
-    CT_AIR_QUALITY_LOW_BATTERY,
+    IAQ_AIR_QUALITY,
+    IAQ_VOC_DENSITY,
+    IAQ_AIR_QUALITY_ACTIVE,
+    IAQ_AIR_QUALITY_LOW_BATTERY,
 
-    CT_ID_COUNT
-} climate_tracker_characteristic_id_t;
+    IAQ_ID_COUNT
+} iaq_characteristic_id_t;
 
-extern uint16_t climate_tracker_notifications_enabled[CT_ID_COUNT];
+extern uint16_t iaq_notifications_enabled[IAQ_ID_COUNT];
 
 // IMPORTANT: make sure the type of storage matches related characteristic
 // specification on https://developers.homebridge.io/#/service/
 
 // Active and low battery flags are applicable for all services, so keep one
 // copy of flags for them all as these are not supposed to change independently.
-extern bool climate_tracker_active;
-extern bool climate_tracker_low_battery;
+extern bool iaq_active;
+extern bool iaq_low_battery;
 
-extern float   climate_tracker_current_temperature;
-extern float   climate_tracker_relative_humidity;
-extern uint8_t climate_tracker_air_quality;
-extern float   climate_tracker_voc_density;
+extern float   iaq_current_temperature;
+extern float   iaq_relative_humidity;
+extern uint8_t iaq_air_quality;
+extern float   iaq_voc_density;
 
-void climate_tracker_init();
-bool climate_tracker_any_notification_enabled();
-void climate_tracker_thread();
+void iaq_init();
+bool iaq_any_notification_enabled();
+void iaq_thread();
 
-#endif // CLIMATE_TRACKER_H
+#endif // IAQ_H

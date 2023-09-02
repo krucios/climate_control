@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.12)
 include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 include($ENV{PICO_EXTRAS_PATH}/external/pico_extras_import.cmake)
 
-project(climate_control C CXX ASM)
+project(iaq_tracker C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
@@ -34,13 +34,13 @@ add_subdirectory(bsec)
 
 # Standalone example that reads from the on board temperature sensor and sends notifications via BLE
 # Flashes slowly each second to show it's running
-add_executable(climate_control_sensor
-    sensor.c
-    bt_services/climate_tracker.c
+add_executable(iaq_tracker
+    main.c
+    bt_services/iaq.c
     bme680/bme68x.c
 )
 
-target_link_libraries(climate_control_sensor
+target_link_libraries(iaq_tracker
     bsec
     bme680
     pico_stdlib
@@ -49,17 +49,17 @@ target_link_libraries(climate_control_sensor
     pico_cyw43_arch_none
 )
 
-target_include_directories(climate_control_sensor PRIVATE
+target_include_directories(iaq_tracker PRIVATE
     ${CMAKE_CURRENT_LIST_DIR} # For btstack config
     ${CMAKE_CURRENT_LIST_DIR}/bt_services
     ${CMAKE_CURRENT_LIST_DIR}/bme680
 )
 
-pico_btstack_make_gatt_header(climate_control_sensor PRIVATE "${CMAKE_CURRENT_LIST_DIR}/sensor.gatt")
+pico_btstack_make_gatt_header(iaq_tracker PRIVATE "${CMAKE_CURRENT_LIST_DIR}/iaq_tracker.gatt")
 
 # create map/bin/hex file etc.
-pico_add_extra_outputs(climate_control_sensor)
+pico_add_extra_outputs(iaq_tracker)
 
 # enable usb output, disable uart output
-pico_enable_stdio_usb(climate_control_sensor 1)
-pico_enable_stdio_uart(climate_control_sensor 0)
+pico_enable_stdio_usb(iaq_tracker 1)
+pico_enable_stdio_uart(iaq_tracker 0)

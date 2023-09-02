@@ -5,16 +5,16 @@
 
 #include "bsec_integration.h"
 
-#include "climate_tracker.h"
+#include "iaq.h"
 
-uint16_t climate_tracker_notifications_enabled[CT_ID_COUNT] = {0};
-bool climate_tracker_active = false;
-bool climate_tracker_low_battery = false;
+uint16_t iaq_notifications_enabled[IAQ_ID_COUNT] = {0};
+bool iaq_active = false;
+bool iaq_low_battery = false;
 
-float climate_tracker_current_temperature = 0.0f;
-float climate_tracker_relative_humidity = 0.0f;
-uint8_t climate_tracker_air_quality = 1;
-float climate_tracker_voc_density = 0.0f;
+float iaq_current_temperature = 0.0f;
+float iaq_relative_humidity = 0.0f;
+uint8_t iaq_air_quality = 1;
+float iaq_voc_density = 0.0f;
 
 void bsec_outputs_ready(int64_t timestamp,
                         float iaq,
@@ -31,12 +31,12 @@ void bsec_outputs_ready(int64_t timestamp,
                         float sensor_heat_compensated_humidity,
                         float gas_percentage,
                         bsec_library_return_t bsec_status) {
-    climate_tracker_current_temperature = sensor_heat_compensated_temperature;
-    climate_tracker_relative_humidity = sensor_heat_compensated_humidity;
-    climate_tracker_air_quality = (uint8_t)((iaq * 0.8f) / 100) + 1; // Scale 0 - 500 to 1 - 4
-    climate_tracker_voc_density = breath_voc_equivalent;
+    iaq_current_temperature = sensor_heat_compensated_temperature;
+    iaq_relative_humidity = sensor_heat_compensated_humidity;
+    iaq_air_quality = (uint8_t)((iaq * 0.8f) / 100) + 1; // Scale 0 - 500 to 1 - 4
+    iaq_voc_density = breath_voc_equivalent;
 
-    climate_tracker_active = stabilization_status;
+    iaq_active = stabilization_status;
 
     printf("IAQ(%3.0f), ", iaq);
     printf("sIAQ(%3.0f), ", static_iaq);
@@ -54,22 +54,21 @@ void bsec_outputs_ready(int64_t timestamp,
     printf("bsec(%d)\n", bsec_status);
 }
 
-void climate_tracker_init() {
-    // TODO: adjust sample rate for ULP
-    bsec_iot_init(BSEC_SAMPLE_RATE_CONT, 0.0f);
+void iaq_init() {
+    bsec_iot_init(BSEC_SAMPLE_RATE_ULP, 0.0f);
 }
 
-bool climate_tracker_any_notification_enabled() {
+bool iaq_any_notification_enabled() {
     bool any_enabled = false;
 
-    for (size_t i = 0; i < CT_ID_COUNT; i++) {
-        any_enabled |= climate_tracker_notifications_enabled[i];
+    for (size_t i = 0; i < IAQ_ID_COUNT; i++) {
+        any_enabled |= iaq_notifications_enabled[i];
     }
 
     return any_enabled;
 }
 
-void climate_tracker_thread() {
+void iaq_thread() {
     // TODO: adjust save state interval for low-power (maybe once a day)
-    bsec_iot_loop(bsec_outputs_ready, 100);
+    bsec_iot_loop(bsec_outputs_ready, 288); // Once a day assuming sample each 5 min
 }
